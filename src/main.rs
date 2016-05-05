@@ -20,6 +20,16 @@ use cargo::core::shell::{ColorConfig, Verbosity};
 
 mod sysroot;
 
+enum XargoCmd {
+    Purge,
+    BuildSysroot,
+}
+
+enum WhichCommand {
+    Cargo(Command),
+    Xargo(XargoCmd),
+}
+
 fn main() {
     let config_opt = &mut None;
     if let Err(e) = run(config_opt) {
@@ -43,7 +53,12 @@ fn run(config_opt: &mut Option<Config>) -> CargoResult<()> {
                                           means that $HOME was not set")
                          }));
 
-    let (mut cargo, target, verbose) = try!(parse_args());
+    let (cmd, target, verbose) = try!(parse_args());
+    if let WhichCommand::Xargo(XargoCmd::Purge) = cmd {
+        try!{sysroot::purge(config,root )};
+        return Ok(());
+
+    }
 
     let rustflags = &try!(rustflags(config));
     let mut with_sysroot = false;
@@ -56,6 +71,12 @@ fn run(config_opt: &mut Option<Config>) -> CargoResult<()> {
             with_sysroot = true;
         }
     }
+
+    let mut cargo = match cmd {
+        WhichCommand::Cargo(cargo) => cargo,
+        WhichCommand::Xargo(XargoCmd::Purge) => return Ok(()),
+        WhichCommand::Xargo(XargoCmd::BuildSysroot) => return Ok(()),
+    };
 
     let lock = if with_sysroot {
         let lock = try!(root.open_ro("date", config, "xargo"));
@@ -134,14 +155,21 @@ impl Target {
     }
 }
 
-fn parse_args() -> CargoResult<(Command, Option<Target>, bool)> {
-    let mut cargo = Command::new("cargo");
+fn parse_args() -> CargoResult<(WhichCommand, Option<Target>, bool)> {
+    let mut cmd: Option<WhichCommand> = None;
     let mut target = None;
     let mut verbose = false;
 
     let mut next_is_target = false;
-    for arg_os in env::args_os().skip(1) {
-        for arg in arg_os.to_string_lossy().split(' ') {
+    for (j, arg_os) in env::args_os().skip(1).enumerate() {
+        for (i, arg) in arg_os.to_string_lossy().split(' ').enumerate() {
+            if i == 0 && j == 0 {
+                match arg {
+                    "purge" => cmd = Some(WhichCommand::Xargo(XargoCmd::Purge)),
+                    "sysroot" => cmd = Some(WhichCommand::Xargo(XargoCmd::BuildSysroot)),
+                    _ => cmd = Some(WhichCommand::Cargo(Command::new("cargo"))),
+                }
+            }
             if target.is_none() {
                 if next_is_target {
                     target = try!(Target::from(arg));
@@ -161,10 +189,11 @@ fn parse_args() -> CargoResult<(Command, Option<Target>, bool)> {
             }
         }
 
-        cargo.arg(arg_os);
+        if let Some(WhichCommand::Cargo(ref mut cargo)) = cmd {
+            cargo.arg(arg_os);
+        }
     }
-
-    Ok((cargo, target, verbose))
+    Ok((cmd.expect("Command not set"), target, verbose))
 }
 
 /// Returns the RUSTFLAGS the user has set either via the env variable or via build.rustflags

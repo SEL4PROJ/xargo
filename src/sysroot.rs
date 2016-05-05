@@ -81,6 +81,14 @@ pub fn create(config: &Config,
     Ok(())
 }
 
+pub fn purge(config: &Config, root: &Filesystem) -> CargoResult<()> {
+    let lock = try!(root.open_rw("date", config, "xargo"));
+    try!(config.shell().out().say_status("Purging xargo directory", &root.display(), GREEN, true));
+    try!(fs::remove_dir_all(lock.parent()));
+
+    Ok(())
+}
+
 fn update_source(config: &Config, date: &NaiveDate, root: &Filesystem) -> CargoResult<()> {
     const TARBALL: &'static str = "rustc-nightly-src.tar.gz";
 
