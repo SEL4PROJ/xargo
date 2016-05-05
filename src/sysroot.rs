@@ -183,7 +183,7 @@ fn rebuild_sysroot(config: &Config,
         Ok(hash.parse().ok())
     }
 
-    const CRATES: &'static [&'static str] = &["collections", "rand"];
+    const CRATES: &'static [&'static str] = &["std"];
     const TOML: &'static str = "[package]
 name = 'sysroot'
 version = '0.0.0'
