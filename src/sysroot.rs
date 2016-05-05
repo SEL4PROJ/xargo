@@ -141,10 +141,6 @@ fn update_source(config: &Config, date: &NaiveDate, root: &Filesystem) -> CargoR
                 let path = try!(entry.path());
                 let mut components = path.components();
                 components.next();
-                let next = components.next().and_then(|s| s.as_os_str().to_str());
-                if next != Some("src") {
-                    continue;
-                }
                 components.as_path().to_path_buf()
             };
             try!(entry.unpack(src_dir.join(path)));
@@ -226,7 +222,7 @@ version = '0.0.0'
     for krate in CRATES {
         toml.push_str(&format!("{} = {{ path = '{}' }}\n",
                                krate,
-                               root.join(format!("src/lib{}", krate)).display()))
+                               root.join(format!("src/src/lib{}", krate)).display()))
     }
     try!(try!(File::create(td.join("Cargo.toml"))).write_all(toml.as_bytes()));
     if !rustflags.is_empty() {
